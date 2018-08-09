@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Update email</title>
+  <link rel='stylesheet' href='/stylesheets/style.css' />
+</head>
+
+<body>
+  <h1>Update email</h1>
+  <form method="POST">
+    Username:
+    <br />
+    <input type="text" name="username" value="<%= input.username %>" />
+    <br /> Password:
+    <br />
+    <input type="password" name="password" />
+    <br /> New email:
+    <br />
+    <input type="email" name="email" value="<%= input.email %>" />
+    <br />
+    <input type="submit" />
+  </form>
+  <%= errors %>
+</body>
+
+</html>

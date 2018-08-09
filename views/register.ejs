@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Registration</title>
+  <link rel='stylesheet' href='/stylesheets/style.css' />
+</head>
+
+<body>
+  <h1>Register</h1>
+  <form method="POST">
+    Username:
+    <br />
+    <input type="text" name="username" value="<%= input.username %>" />
+    <br /> Email:
+    <br />
+    <input type="email" name="email" value="<%= input.email %>" />
+    <br /> Password:
+    <br />
+    <input type="password" name="password" />
+    <br />
+    <input type="submit" />
+  </form>
+  <%= errors %>
+</body>
+
+</html>
