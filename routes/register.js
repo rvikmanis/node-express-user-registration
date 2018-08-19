@@ -4,43 +4,23 @@ var randomstring = require("randomstring");
 var field = form.field;
 var router = express.Router();
 
-/* GET users listing. */
-router.get('/', function (req, res, next) {
-  res.render('register', { errors: "", input: {} });
-});
-
 var registrationForm = form(
   field("username").trim().required().is(/^[a-zA-Z0-9]+$/),
   field("password").trim().required().is(/^.+$/),
   field("email").required().trim().isEmail()
 );
 
-router.get('/verify', function (req, res, next) {
-  var verification_string = req.query.vs;
-  req.db.query(`
-    SELECT * FROM users WHERE verification_string = ${req.db.escape(verification_string)}
-  `, function (errors, results) {
-      if (errors) {
-        next();
-      } else {
-        req.db.query(
-          `UPDATE users SET verified = '1' WHERE id = ${req.db.escape(results[0].id)}`,
-          function (errors) {
-            if (errors) {
-              res.send(JSON.stringify(errors));
-            } else {
-              res.render('verified');
-            }
-          }
-        )
-      }
-    })
-})
+router.get('/', function (req, res, next) {
+  res.render('register', { errors: "", input: {} });
+});
 
-router.post("/", registrationForm, function (req, res, next) {
-  if (req.form.isValid) {
+router.post("/", registrationForm, async function (req, res, next) {
+  try {
+    if (!req.form.isValid) {
+      throw req.form.errors
+    }
     var verification_string = randomstring.generate();
-    req.db.query(`
+    await req.dbQuery(`
       INSERT INTO
         users (
           username, 
@@ -54,41 +34,73 @@ router.post("/", registrationForm, function (req, res, next) {
           ${req.db.escape(req.form.password)},
           ${req.db.escape(verification_string)}
         )
-    `, function (errors, results) {
-        if (!errors) {
-          let message = `Follow this link to
-          verify your email address: http://localhost:3000/register/verify?vs=${verification_string}`
-
-          let mailOptions = {
-            from: '"Example" <zonamailbox2@gmail.com>', // sender address
-            to: req.form.email, // list of receivers
-            subject: 'Please verify your email address', // Subject line
-            text: message, // plain text body
-            html: message // html body
-          };
-
-          req.mailer.sendMail(mailOptions, (error, info) => {
-            if (error) {
-              res.render('register', {
-                input: {},
-                errors: JSON.stringify(error)
-              })
-            } else {
-              res.render('success')
-            }
-          });
-        } else {
-          res.render('register', {
-            input: {},
-            errors: JSON.stringify(errors)
-          })
-        }
-      })
-  } else {
+    `)
+    await req.sendVerificationMail(req.form.email, verification_string)
+    res.render('success', { heading: "Registration successful" });
+  }
+  catch (e) {
     res.render('register', {
-      errors: JSON.stringify(req.form.errors),
+      errors: JSON.stringify(e),
       input: req.form
     })
+  }
+})
+
+router.get('/update-email', function (req, res, next) {
+  res.render('update-email', { errors: "", input: {} });
+});
+
+router.post("/update-email", registrationForm, async function (req, res, next) {
+  try {
+    if (!req.form.isValid) {
+      throw req.form.errors
+    }
+    var verification_string = randomstring.generate();
+
+    var results = await req.dbQuery(`
+      SELECT * FROM users
+        WHERE username = ${req.db.escape(req.form.username)}
+          AND password = ${req.db.escape(req.form.password)}
+    `)
+    if (!results[0]) {
+      throw "Invalid username or password"
+    }
+
+    await req.dbQuery(`
+      UPDATE users
+        SET
+          email = ${req.db.escape(req.form.email)},
+          verified = '0',
+          verification_string = ${req.db.escape(verification_string)}
+        WHERE id = ${req.db.escape(results[0].id)}
+    `)
+    await req.sendVerificationMail(req.form.email, verification_string)
+    res.render('success', { heading: "Email address updated" });
+  }
+  catch (e) {
+    res.render('update-email', {
+      errors: JSON.stringify(e),
+      input: req.form
+    })
+  }
+})
+
+router.get('/verify', async function (req, res, next) {
+  try {
+    var verification_string = req.query.vs;
+    var results = await req.dbQuery(`
+      SELECT * FROM users WHERE verification_string = ${req.db.escape(verification_string)}
+    `)
+    if (!results[0]) {
+      throw "Invalid verification string"
+    }
+    await req.dbQuery(
+      `UPDATE users SET verified = '1' WHERE id = ${req.db.escape(results[0].id)}`,
+    )
+    res.render('verified');
+  }
+  catch (e) {
+    res.send(JSON.stringify(e))
   }
 })
 
